@@ -1,0 +1,123 @@
+version: "3.3"
+services:
+
+  php-fpm8.2:
+    restart: unless-stopped
+    build:
+      context: images/php-fpm82
+      args:
+        - USER_ID
+        - GROUP_ID
+    volumes:
+      - ./www:/var/www
+      - ./config/php/8.2/www.conf:/etc/php/8.2/fpm/pool.d/www.conf:ro
+      - ./config/php/8.2/php.ini:/etc/php/8.2/fpm/php.ini
+      - ./config/php/8.2/php.ini:/etc/php/8.2/cli/php.ini
+    environment:
+      PHP_IDE_CONFIG: "serverName=Docker1"
+      XDEBUG_TRIGGER: 'yep' # trigger for CLI mode
+    networks:
+      - dev-network
+    depends_on:
+      - mysql
+      - memcached
+      - redis
+    links:
+      - mysql
+      - memcached
+      - redis
+      - smtp
+
+  php-fpm7.4:
+    restart: unless-stopped
+    build:
+      context: images/php-fpm74
+      args:
+        - USER_ID
+        - GROUP_ID
+    volumes:
+      - ./www:/var/www
+      - ./config/php/7.4/www.conf:/etc/php/7.4/fpm/pool.d/www.conf:ro
+      - ./config/php/7.4/php.ini:/etc/php/7.4/fpm/php.ini
+      - ./config/php/7.4/php.ini:/etc/php/7.4/cli/php.ini
+    environment:
+      PHP_IDE_CONFIG: "serverName=Docker1"
+      XDEBUG_TRIGGER: 'yep' # trigger for CLI mode
+    networks:
+      - dev-network
+    depends_on:
+      - mysql
+      - memcached
+      - redis
+    links:
+      - mysql
+      - memcached
+      - redis
+      - smtp
+
+  nginx:
+    image: nginx
+    restart: unless-stopped
+    volumes:
+      - ./config/nginx:/etc/nginx/conf.d
+      - ./www:/var/www
+      - ./logs:/var/log/nginx
+    ports:
+      - "80:80" 
+    networks:
+      - dev-network
+    links:
+      - php-fpm8.2
+      - php-fpm7.4
+
+  mysql:
+    image: mariadb:11
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PWD}
+    volumes:
+      - ./logs:/var/log/mysql
+      - ./data/mysql:/var/lib/mysql
+      - ./config/mysql:/etc/mysql/conf.d
+    ports:
+      - "3307:3306"
+    networks:
+      - dev-network
+
+  memcached:
+    image: memcached
+    networks:
+      - dev-network
+
+  redis:
+    image: redis
+    networks:
+      - dev-network
+
+  node16_16:
+    image: node:16.16
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./www:/var/www
+    tty: true
+    working_dir: /var/www
+    networks:
+      - dev-network
+
+  smtp:
+    image: dockage/mailcatcher:0.8.2
+    ports:
+      - "1080:1080"
+      - "1025:1025"
+    networks:
+      - dev-network
+
+networks:
+  dev-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.225.0/28
